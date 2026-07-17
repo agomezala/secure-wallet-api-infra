@@ -1,0 +1,37 @@
+name: Terraform Deploy
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::900881669003:role/GitHubActionsECSRole
+          aws-region: eu-west-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.0"
+
+      - run: terraform init
+
+      - run: terraform validate
+
+      - run: |
+          terraform plan \
+            -var="rds_password=${{ secrets.RDS_PASSWORD }}" \
+            -out=tfplan
+
+      - run: |
+          terraform apply -auto-approve \
+            -var="rds_password=${{ secrets.RDS_PASSWORD }}" \
+            tfplan
