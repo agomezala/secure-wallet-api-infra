@@ -7,6 +7,14 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "secure-wallet-terraform-state"
+    key            = "infra/terraform.tfstate"
+    region         = "eu-west-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+  }
 }
 
 # VPC Principal
@@ -66,6 +74,52 @@ resource "aws_iam_role" "github_actions_role" {
           }
         }
       }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "github_actions_policy" {
+  name = "GitHubActionsECSPolicy"
+  role = aws_iam_role.github_actions_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:RegisterTaskDefinition",
+          "ecs:UpdateService",
+          "ecs:DescribeServices",
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole",
+        ]
+        Resource = [
+          aws_iam_role.ecs_execution_role.arn,
+          aws_iam_role.ecs_task_role.arn,
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+        ]
+        Resource = "arn:aws:s3:::secure-wallet-terraform-state/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+        ]
+        Resource = "arn:aws:dynamodb:*:900881669003:table/terraform-state-lock"
+      },
     ]
   })
 }
