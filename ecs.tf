@@ -9,6 +9,12 @@ resource "aws_ecs_cluster" "main" {
   tags = { Name = "wallet-cluster" }
 }
 
+resource "aws_cloudwatch_log_group" "ecs" {
+  name              = "/ecs/wallet-task"
+  retention_in_days = 14
+  tags              = { Name = "wallet-task-logs" }
+}
+
 resource "aws_ecr_repository" "app" {
   name                 = "wallet-app"
   image_tag_mutability = "IMMUTABLE"
