@@ -25,7 +25,7 @@ Infraestructura como codigo (IaC) con Terraform para una API serverless sobre AW
     |  - ECS Fargate      |        |  - ECS Fargate      |
     +---------------------+        +---------------------+
     | Subnet de datos     |        | Subnet de datos     |
-    |  - RDS PostgreSQL   |        |  - RDS (standby)    |
+     |  - RDS PostgreSQL   |        |                     |
     +---------------------+        +---------------------+
 ```
 
@@ -66,7 +66,7 @@ Infraestructura como codigo (IaC) con Terraform para una API serverless sobre AW
 **Que gana la empresa:**
 
 - **Tolerancia a fallo real.** Si un centro de datos de AWS queda indisponible (ha pasado), la aplicacion sigue funcionando en la otra zona sin intervencion manual.
-- **SLA de facto.** Con 2 AZs y RDS Multi-AZ, la infraestructura tolera la caida completa de una zona de disponibilidad. AWS rara vez pierde 2 AZs a la vez.
+- **Alta disponibilidad parcial.** La capa de red y aplicacion son multi-AZ. RDS se mantiene como Single-AZ en esta demostracion para minimizar costes, pero es configurable a Multi-AZ con un cambio de variable.
 - **Coste adicional controlado:** ~32$/mes por el segundo NAT Gateway. En terminos de negocio, es el coste de <1 hora de downtime evitado.
 
 **Decision consciente:** Si el presupuesto lo exige, se puede reducir a 1 NAT Gateway compartido cambiando una variable. La arquitectura actual prioriza la disponibilidad sobre el ahorro marginal.
@@ -80,7 +80,7 @@ Infraestructura como codigo (IaC) con Terraform para una API serverless sobre AW
 **Por que:** El modelo de defensa en profundidad parte de un principio sencillo: si un atacante compromete una capa, no debe poder acceder a la siguiente.
 
 ```
-Internet --> [SG ALB:80/443] --> ALB --> [SG ECS:80] --> Fargate --> [SG RDS:5432] --> PostgreSQL
+Internet --> [SG ALB:80/443] --> ALB --> [SG ECS:8080] --> Fargate --> [SG RDS:5432] --> PostgreSQL
 ```
 
 - **El ALB** solo acepta trafico HTTP/HTTPS del mundo exterior.
@@ -116,16 +116,16 @@ Internet --> [SG ALB:80/443] --> ALB --> [SG ECS:80] --> Fargate --> [SG RDS:543
 
 ---
 
-### 5. Por que RDS PostgreSQL con Multi-AZ y almacenamiento cifrado?
+### 5. Por que RDS PostgreSQL con almacenamiento cifrado?
 
-**Que elegimos:** Amazon RDS PostgreSQL 15.4, Multi-AZ, almacenamiento cifrado gp3, backups diarios con 7 dias de retencion.
+**Que elegimos:** Amazon RDS PostgreSQL 16, almacenamiento cifrado gp3, backups diarios con 1 dia de retencion.
 
 **Por que:**
 
-- **Multi-AZ:** RDS mantiene una replica sincrona en standby en otra zona de disponibilidad. Si la instancia primaria falla (hardware, mantenimiento, AZ caida), AWS promociona el standby automaticamente en 60-120 segundos. La aplicacion no necesita reconfigurar nada: el DNS del endpoint de RDS apunta a la nueva primaria.
 - **Cifrado en reposo:** AES-256 gestionado por AWS KMS. Sin coste adicional para gp3.
 - **gp3 (SSD):** Mejor relacion precio/rendimiento que gp2. Permite ajustar IOPS y throughput independientemente del almacenamiento.
-- **Backups automatizados:** 7 dias de retencion. Restauracion a cualquier punto en el tiempo (PITR) dentro de esa ventana.
+- **Backups automatizados:** Retencion de 1 dia. Restauracion a cualquier punto en el tiempo (PITR) dentro de esa ventana.
+- **Multi-AZ disponible:** La configuracion actual es Single-AZ para minimizar costes en entornos de demostracion. Para produccion, activar `multi_az = true` proporciona failover automatico en ~60-120 segundos con una replica sincrona en otra zona de disponibilidad.
 
 **Que gana la empresa:**
 
@@ -186,12 +186,12 @@ La eleccion: ALB porque integra con ECS de forma nativa, soporta health checks a
 | Recurso                     | Cantidad | Coste/mes (eu-west-1) | Notas                              |
 |-----------------------------|----------|-----------------------|------------------------------------|
 | ALB                         | 1        | ~$22                  | Tarifa fija + LCU minimas          |
-| ECS Fargate (0.5 vCPU/1GB)  | 2 tasks  | ~$35                  | 2 tasks para HA, estimacion base   |
+| ECS Fargate (0.25 vCPU/0.5GB) | 1 task   | ~$15                  | 1 tarea para demostracion, escalable |
 | ECR                         | 1 repo   | ~$1                   | Almacenamiento de imagenes Docker  |
-| RDS PostgreSQL db.t3.small  | 1        | ~$70                  | Multi-AZ duplica este coste ~$35   |
+| RDS PostgreSQL db.t3.micro  | 1        | ~$15                  | Single-AZ para minimizar costes    |
 | NAT Gateways                | 2        | ~$72                  | $0.045/hora x 2 x 730h             |
 | Elastic IPs                 | 2        | ~$7                   | Solo si no estan asociadas a un NAT|
-| **Total estimado**          |          | **~$207/mes**         |                                    |
+| **Total estimado**          |          | **~$132/mes**         |                                    |
 
 > **Nota:** El coste real depende del trafico y uso. Con auto-scaling, Fargate escala a 0 tareas fuera de horario laboral si se configura `aws_appautoscaling_target` con schedule, reduciendo costes significativamente.
 
