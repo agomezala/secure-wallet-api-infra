@@ -70,3 +70,38 @@ resource "aws_iam_role_policy_attachment" "ecs_task_role_xray" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
+
+locals {
+  database_url = "postgresql://${aws_db_instance.postgres.username}:${var.rds_password}@${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}?sslmode=no-verify"
+}
+
+resource "aws_secretsmanager_secret" "database_url" {
+  name        = "wallet-database-url"
+  description = "Full DATABASE_URL para la wallet API"
+  tags        = { Name = "wallet-database-url" }
+}
+
+resource "aws_secretsmanager_secret_version" "database_url" {
+  secret_id = aws_secretsmanager_secret.database_url.id
+  secret_string = local.database_url
+}
+
+resource "aws_iam_role_policy" "task_secrets" {
+  name = "wallet-task-secrets"
+  role = aws_iam_role.ecs_task_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+        ]
+        Resource = [
+          aws_secretsmanager_secret.database_url.arn,
+        ]
+      },
+    ]
+  })
+}
