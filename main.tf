@@ -127,7 +127,16 @@ resource "aws_iam_role_policy" "github_actions_policy" {
       {
         Effect = "Allow"
         Action = [
+          "s3:ListBucket",
+        ]
+        Resource = "arn:aws:s3:::secure-wallet-terraform-state"
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
         ]
         Resource = "arn:aws:s3:::secure-wallet-terraform-state/*"
       },
