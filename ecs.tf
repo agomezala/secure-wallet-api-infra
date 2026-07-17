@@ -86,9 +86,9 @@ resource "aws_secretsmanager_secret_version" "database_url" {
   secret_string = local.database_url
 }
 
-resource "aws_iam_role_policy" "task_secrets" {
-  name = "wallet-task-secrets"
-  role = aws_iam_role.ecs_task_role.name
+resource "aws_iam_role_policy" "execution_secrets" {
+  name = "wallet-execution-secrets"
+  role = aws_iam_role.ecs_execution_role.name
 
   policy = jsonencode({
     Version = "2012-10-17"
