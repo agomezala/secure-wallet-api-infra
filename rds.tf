@@ -13,7 +13,7 @@ resource "aws_db_instance" "postgres" {
 
   allocated_storage     = 20
   max_allocated_storage = 20
-  storage_type          = "gp2"
+  storage_type          = "gp3"
   storage_encrypted     = true
 
   db_name  = "walletdb"
@@ -27,7 +27,7 @@ resource "aws_db_instance" "postgres" {
   publicly_accessible = false
   skip_final_snapshot = true
 
-  backup_retention_period = 0
+  backup_retention_period = 1
   backup_window          = "03:00-04:00"
   maintenance_window     = "sun:04:00-sun:05:00"
 
