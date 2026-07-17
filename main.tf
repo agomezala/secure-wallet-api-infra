@@ -91,7 +91,9 @@ resource "aws_iam_role_policy" "github_actions_policy" {
           "ecs:RegisterTaskDefinition",
           "ecs:DescribeTaskDefinition",
           "ecs:DeregisterTaskDefinition",
+          "ecs:CreateService",
           "ecs:UpdateService",
+          "ecs:DeleteService",
           "ecs:DescribeServices",
           "ecs:TagResource",
         ]
